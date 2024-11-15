@@ -1,0 +1,69 @@
+import requests
+from bs4 import BeautifulSoup
+
+# Define constants for URLs, credentials, and file name
+LOGIN_URL = "https://www.fantasypros.com/accounts/login/"
+TARGET_URL = "https://www.fantasypros.com/nfl/rankings/waiver-wire-overall.php"
+EMAIL = "tempemailforclassprojectatdbu@gmail.com"
+PASSWORD = "!QAZ@WSX1qaz2wsx"
+FILE_NAME = "FantasyPros_2024_Waiver_ALL_Rankings.csv"
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+}
+
+# Step 1: Create a session to maintain cookies and headers across requests
+session = requests.Session()
+session.headers.update(HEADERS)
+
+try:
+    # Step 2: Fetch the login page to retrieve the CSRF token
+    login_page = session.get(LOGIN_URL)
+    login_page.raise_for_status()  # Ensure the request was successful
+    soup = BeautifulSoup(login_page.text, 'html.parser')
+
+    # Extract the CSRF token (a hidden input field required for login)
+    csrf_token = soup.find("input", {"name": "csrf_token"})["value"]
+
+    # Step 3: Submit the login form with credentials and CSRF token
+    login_data = {
+        "username": EMAIL,
+        "password": PASSWORD,
+        "csrf_token": csrf_token
+    }
+    login_response = session.post(LOGIN_URL, data=login_data)
+    login_response.raise_for_status()  # Ensure login request was successful
+
+    # Verify login by checking the presence of "Logout" or similar indicator
+    if "Logout" not in login_response.text:
+        raise Exception("Login failed. Please verify your credentials.")
+
+    print("Login successful!")
+
+    # Step 4: Access the target page containing the CSV link
+    target_page = session.get(TARGET_URL)
+    target_page.raise_for_status()
+    soup = BeautifulSoup(target_page.text, 'html.parser')
+
+    # Locate the CSV download link (modify selector if necessary)
+    csv_link = soup.find("a", text="CSV")
+    if not csv_link:
+        raise Exception("CSV download link not found on the target page.")
+
+    # Resolve the full URL of the CSV file
+    csv_url = csv_link["href"]
+    if not csv_url.startswith("http"):
+        csv_url = "https://www.fantasypros.com" + csv_url
+
+    # Step 5: Download the CSV file
+    csv_response = session.get(csv_url)
+    csv_response.raise_for_status()  # Ensure the download request was successful
+
+    # Step 6: Save the file locally with the specified name
+    with open(FILE_NAME, "wb") as file:
+        file.write(csv_response.content)
+
+    print(f"CSV file successfully downloaded as '{FILE_NAME}'.")
+
+except Exception as e:
+    # Handle any exceptions and provide feedback
+    print(f"An error occurred: {e}")
