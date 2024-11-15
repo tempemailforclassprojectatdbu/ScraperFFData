@@ -1,0 +1,32 @@
+# YAML pipeline for running the Python scraper script
+trigger:
+- main  # Replace with your branch name
+
+pool:
+  vmImage: 'ubuntu-latest'  # Using Ubuntu VM for Python environment
+
+steps:
+# Step 1: Install Python
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.x'  # Ensures Python 3.x is installed
+    addToPath: true
+
+# Step 2: Install dependencies
+- script: |
+    python -m pip install --upgrade pip
+    pip install -r requirements.txt
+  displayName: 'Install dependencies'
+
+# Step 3: Run the Python script
+- script: |
+    python scripts/scraper.py
+  displayName: 'Run scraper script'
+
+# Step 4: Publish CSV file as a pipeline artifact (optional)
+- task: PublishPipelineArtifact@1
+  inputs:
+    targetPath: 'FantasyPros_2024_Waiver_ALL_Rankings.csv'  # Path to the downloaded file
+    artifact: 'CSVFile'
+    publishLocation: 'pipeline'
+  displayName: 'Publish CSV file as artifact'
