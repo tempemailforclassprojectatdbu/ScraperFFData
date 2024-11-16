@@ -1,0 +1,30 @@
+trigger:
+- main  # Replace with your branch name
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+# Step 1: Set up Python environment
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.x'
+    addToPath: true
+
+# Step 2: Install dependencies
+- script: |
+    python -m pip install --upgrade pip
+    pip install -r requirements.txt
+  displayName: 'Install dependencies'
+
+# Step 3: Run the scraper script
+- script: |
+    python scripts/scrape_waiver_wire.py
+  displayName: 'Run scraper script'
+
+# Step 4: Publish the CSV file as an artifact
+- task: PublishPipelineArtifact@1
+  inputs:
+    targetPath: 'Waiver_Wire_Rankings.csv'
+    artifact: 'ScrapedTable'
+  displayName: 'Publish CSV file as artifact'
