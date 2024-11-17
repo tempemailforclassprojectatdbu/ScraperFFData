@@ -1,0 +1,58 @@
+import requests
+from bs4 import BeautifulSoup
+import csv
+import boto3
+import os
+
+def scrape_and_send_email():
+    # Step 1: Scrape the table data
+    URL = "https://www.fantasypros.com/nfl/rankings/waiver-wire-half-point-ppr-overall.php"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+    }
+
+    try:
+        response = requests.get(URL, headers=headers)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        table = soup.find("table", {"class": "table"})
+        if not table:
+            raise ValueError("Table not found on the page.")
+
+        headers = [th.text.strip() for th in table.find_all("th")]
+        rows = [
+            [td.text.strip() for td in tr.find_all("td")]
+            for tr in table.find("tbody").find_all("tr")
+        ]
+
+        # Step 2: Filter the data (example: Top 5 rows)
+        filtered_data = rows[:5]
+
+        # Step 3: Create a CSV string
+        csv_content = ",".join(headers) + "\n"
+        csv_content += "\n".join([",".join(row) for row in filtered_data])
+
+        # Step 4: Send the email with AWS SES
+        ses_client = boto3.client('ses', region_name='us-east-1')  # Adjust region
+        ses_client.send_email(
+            Source=os.environ['EMAIL_SENDER'],  # Configure in Lambda environment
+            Destination={
+                'ToAddresses': [os.environ['EMAIL_RECEIVER']]
+            },
+            Message={
+                'Subject': {'Data': 'Weekly Waiver Wire Rankings'},
+                'Body': {
+                    'Text': {'Data': f"Here are the top waiver wire rankings:\n\n{csv_content}"}
+                }
+            }
+        )
+
+        print("Email sent successfully.")
+
+    except Exception as e:
+        print(f"Error: {e}")
+
+# Lambda handler
+def lambda_handler(event, context):
+    scrape_and_send_email()
